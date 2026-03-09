@@ -13,11 +13,16 @@ interface Comic {
   cover_url: string | null;
 }
 
+function isPDF(url: string | null): boolean {
+  if (!url) return false;
+  return url.toLowerCase().includes(".pdf");
+}
+
 export default function ComicReader() {
   const { id } = useParams();
   const router = useRouter();
   const [comic, setComic] = useState<Comic | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     async function fetchComic() {
@@ -26,7 +31,7 @@ export default function ComicReader() {
         .select("*")
         .eq("id", id)
         .single();
-      if (data) setComic(data);
+      if (data) setComic(data as Comic);
       setLoading(false);
     }
     fetchComic();
@@ -58,23 +63,29 @@ export default function ComicReader() {
       }}>
         <div style={{ fontSize: 40 }}>📭</div>
         <div style={{ marginTop: 8 }}>Comic not found</div>
-        <button onClick={() => router.back()} style={{
-          marginTop: 16, padding: "8px 20px", borderRadius: 999,
-          background: "rgba(255,255,255,0.08)",
-          border: "1px solid rgba(255,255,255,0.15)",
-          color: "white", cursor: "pointer", fontSize: 13,
-        }}>
+        <button
+          onClick={() => router.back()}
+          style={{
+            marginTop: 16, padding: "8px 20px", borderRadius: 999,
+            background: "rgba(255,255,255,0.08)",
+            border: "1px solid rgba(255,255,255,0.15)",
+            color: "white", cursor: "pointer", fontSize: 13,
+          }}
+        >
           ← Go Back
         </button>
       </div>
     );
   }
 
+  const isFilePDF = isPDF(comic.cover_url);
+
   return (
     <div style={{
       minHeight: "100vh", background: "#0a0a0a",
       fontFamily: "sans-serif", color: "white",
     }}>
+
       {/* Top bar */}
       <div style={{
         position: "sticky", top: 0, zIndex: 50,
@@ -104,15 +115,52 @@ export default function ComicReader() {
           </div>
         </div>
 
-        <div style={{ width: 80 }} />
+        {/* Open PDF button — only shown for PDFs */}
+        {isFilePDF && comic.cover_url ? (
+          <a
+            href={comic.cover_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              background: "rgba(255,107,53,0.15)",
+              border: "1px solid rgba(255,107,53,0.4)",
+              color: "#ff6b35", borderRadius: 999,
+              padding: "6px 16px",
+              fontSize: 13, fontWeight: 700,
+              textDecoration: "none",
+              whiteSpace: "nowrap",
+            }}
+          >
+            ↗ Open PDF
+          </a>
+        ) : (
+          <div style={{ width: 80 }} />
+        )}
       </div>
 
-      {/* Comic content */}
+      {/* Content */}
       <div style={{
-        maxWidth: 800, margin: "0 auto", padding: "32px 16px",
-        display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+        maxWidth: isFilePDF ? "100%" : 800,
+        margin: "0 auto",
+        padding: isFilePDF ? "0" : "32px 16px",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 4,
+        height: isFilePDF ? "calc(100vh - 57px)" : "auto",
       }}>
-        {comic.cover_url ? (
+
+        {/* PDF viewer */}
+        {isFilePDF && comic.cover_url && (
+          <iframe
+            src={`${comic.cover_url}#toolbar=1&navpanes=1&scrollbar=1`}
+            style={{ width: "100%", height: "100%", border: "none" }}
+            title={comic.comic_name}
+          />
+        )}
+
+        {/* Image viewer */}
+        {!isFilePDF && comic.cover_url && (
           <img
             src={comic.cover_url}
             alt={comic.comic_name}
@@ -122,7 +170,10 @@ export default function ComicReader() {
               boxShadow: "0 20px 60px rgba(0,0,0,0.6)",
             }}
           />
-        ) : (
+        )}
+
+        {/* No file fallback */}
+        {!comic.cover_url && (
           <div style={{
             width: "100%", maxWidth: 720, height: 500,
             borderRadius: 12, background: "#1a1a2e",
@@ -133,14 +184,17 @@ export default function ComicReader() {
           </div>
         )}
 
-        <div style={{
-          marginTop: 24, textAlign: "center",
-          color: "rgba(255,255,255,0.3)", fontSize: 12,
-        }}>
-          {new Date(comic.created_at).toLocaleDateString("en-IN", {
-            year: "numeric", month: "long", day: "numeric",
-          })}
-        </div>
+        {/* Date — images only */}
+        {!isFilePDF && (
+          <div style={{
+            marginTop: 24, textAlign: "center",
+            color: "rgba(255,255,255,0.3)", fontSize: 12,
+          }}>
+            {new Date(comic.created_at).toLocaleDateString("en-IN", {
+              year: "numeric", month: "long", day: "numeric",
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
