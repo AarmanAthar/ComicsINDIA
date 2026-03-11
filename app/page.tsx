@@ -1,24 +1,53 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import TinderCards, { type Card } from "@/components/comicUI";
 import AddButton from "@/components/uploadButton";
 import SavedComics from "@/components/savedComics";
+import AuthButton from "@/components/Authbutton";
+import { useAuth } from "@/lib/auth";
+import { saveComic, fetchSavedComics } from "@/lib/savedComics";
+import { supabase } from "@/lib/supabase";
 
 export default function Home() {
   const router = useRouter();
+  const { user } = useAuth();
   const [savedComics, setSavedComics] = useState<Card[]>([]);
   const [selectedComic, setSelectedComic] = useState<Card | null>(null);
+
+  // Load saved comics from Supabase when user logs in
+  useEffect(() => {
+    if (!user) {
+      setSavedComics([]);
+      return;
+    }
+    fetchSavedComics(user.id).then((ids) => {
+      if (ids.length === 0) return;
+      supabase
+        .from("ComicsINDIA")
+        .select("*")
+        .in("id", ids)
+        .then(({ data }) => {
+          if (data) setSavedComics(data as Card[]);
+        });
+    });
+  }, [user]);
 
   const handleSave = (card: Card) => {
     setSavedComics((prev) =>
       prev.some((c) => c.id === card.id) ? prev : [...prev, card]
     );
+    if (user) saveComic(user.id, card.id);
   };
 
   return (
     <div className="min-h-screen bg-[#0f0f0f] flex items-center justify-center px-8 relative">
+
+      {/* Auth button — top right */}
+      <div className="fixed top-6 right-8 z-50">
+        <AuthButton />
+      </div>
 
       <div className="fixed bottom-8 right-20 z-50">
         <AddButton />
@@ -53,11 +82,27 @@ export default function Home() {
             </button>
           </div>
 
-          <SavedComics
-            comics={savedComics}
-            selectedId={selectedComic?.id ?? null}
-            onSelect={setSelectedComic}
-          />
+          {/* Show saved comics only when logged in */}
+          {user ? (
+            <SavedComics
+              comics={savedComics}
+              selectedId={selectedComic?.id ?? null}
+              onSelect={setSelectedComic}
+            />
+          ) : (
+            <div style={{
+              padding: "20px",
+              borderRadius: 16,
+              border: "1px dashed rgba(255,255,255,0.08)",
+              color: "rgba(255,255,255,0.2)",
+              fontFamily: "sans-serif",
+              fontSize: 13,
+              textAlign: "center",
+            }}>
+              <div style={{ fontSize: 28, marginBottom: 8 }}>🔒</div>
+              Sign in to save comics across devices
+            </div>
+          )}
         </div>
 
         {/* RIGHT */}
