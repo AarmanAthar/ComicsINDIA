@@ -40,7 +40,6 @@ function SwipeCard({
   const colors = ["#1a1a2e", "#2d1b00", "#0d2137", "#1a0a2e", "#002200", "#1a0000", "#001a1a"];
   const color = colors[card.id % colors.length];
 
-  // Prefer cover_image_url (thumbnail), fall back to cover_url (works for PNGs)
   const isPDF = (url: string | null) => url?.toLowerCase().includes(".pdf") ?? false;
   const imageUrl = card.cover_image_url ?? (isPDF(card.cover_url) ? null : card.cover_url);
 
@@ -72,7 +71,6 @@ function SwipeCard({
       onDragEnd={handleDragEnd}
       whileTap={isTop ? { cursor: "grabbing" } : {}}
     >
-      {/* Cover image or PDF placeholder or initial letter */}
       {imageUrl ? (
         <div style={{
           position: "absolute", inset: 0,
@@ -86,7 +84,6 @@ function SwipeCard({
           }} />
         </div>
       ) : isPDF(card.cover_url) ? (
-        // PDF with no thumbnail — show a stylised placeholder
         <div style={{
           position: "absolute", inset: 0,
           background: `linear-gradient(145deg, ${color}, #0a0a0a)`,
@@ -119,7 +116,6 @@ function SwipeCard({
         </div>
       )}
 
-      {/* SAVE stamp */}
       {isTop && (
         <motion.div style={{
           opacity: saveOpacity,
@@ -135,7 +131,6 @@ function SwipeCard({
         </motion.div>
       )}
 
-      {/* SKIP stamp */}
       {isTop && (
         <motion.div style={{
           opacity: skipOpacity,
@@ -151,12 +146,11 @@ function SwipeCard({
         </motion.div>
       )}
 
-      {/* Info */}
-      <div style={{ position: "relative", zIndex: 10, padding: 28 }}>
-        <div style={{ color: "white", fontFamily: "sans-serif", fontWeight: 800, fontSize: 32 }}>
+      <div style={{ position: "relative", zIndex: 10, padding: 24 }}>
+        <div style={{ color: "white", fontFamily: "sans-serif", fontWeight: 800, fontSize: 26 }}>
           {card.comic_name}
         </div>
-        <div style={{ color: "rgba(255,255,255,0.55)", fontFamily: "sans-serif", fontSize: 16, marginTop: 4 }}>
+        <div style={{ color: "rgba(255,255,255,0.55)", fontFamily: "sans-serif", fontSize: 14, marginTop: 4 }}>
           by {card.author}
         </div>
         <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center", flexWrap: "wrap" }}>
@@ -165,7 +159,7 @@ function SwipeCard({
             padding: "3px 12px", borderRadius: 999,
             background: "rgba(255,107,53,0.15)",
             border: "1px solid rgba(255,107,53,0.4)",
-            color: "#ff6b35", fontSize: 14, fontWeight: 700,
+            color: "#ff6b35", fontSize: 13, fontWeight: 700,
           }}>
             Issue {card.issue}
           </div>
@@ -199,32 +193,31 @@ export default function TinderCards({ onSave }: TinderCardsProps) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-  async function fetchComics(): Promise<void> {
-    const { data, error } = await supabase
-      .from("ComicsINDIA")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .returns<Card[]>();
+    async function fetchComics(): Promise<void> {
+      const { data, error } = await supabase
+        .from("ComicsINDIA")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .returns<Card[]>();
 
-    if (error) {
-      console.error("Supabase error:", error.message);
-      setError(error.message);
+      if (error) {
+        console.error("Supabase error:", error.message);
+        setError(error.message);
+      }
+      if (data) {
+        const seen = new Set<number>();
+        const unique = data.filter((c) => {
+          if (seen.has(c.id)) return false;
+          seen.add(c.id);
+          return true;
+        });
+        setAllCards(unique);
+        setCards(unique);
+      }
+      setLoading(false);
     }
-    if (data) {
-      // Deduplicate by id just in case
-      const seen = new Set<number>();
-      const unique = data.filter((c) => {
-        if (seen.has(c.id)) return false;
-        seen.add(c.id);
-        return true;
-      });
-      setAllCards(unique);
-      setCards(unique);
-    }
-    setLoading(false);
-  }
-  fetchComics();
-}, []);
+    fetchComics();
+  }, []);
 
   const handleSwipe = (id: number, dir: "left" | "right") => {
     const card = cards.find((c) => c.id === id);
@@ -290,13 +283,21 @@ export default function TinderCards({ onSave }: TinderCardsProps) {
     <div style={{
       display: "flex", flexDirection: "column",
       alignItems: "center", justifyContent: "center",
-      fontFamily: "sans-serif", padding: 16,
+      fontFamily: "sans-serif",
+      padding: "0 16px",
+      width: "100%",
     }}>
-      <h2 style={{ color: "white", fontSize: 22, fontWeight: 900, marginBottom: 32, letterSpacing: 2 }}>
+      <h2 style={{ color: "white", fontSize: 20, fontWeight: 900, marginBottom: 24, letterSpacing: 2 }}>
         Your Feed
       </h2>
 
-      <div style={{ position: "relative", width: 420, height: 580, marginBottom: 40 }}>
+      {/* Responsive card container */}
+      <div style={{
+        position: "relative",
+        width: "min(380px, calc(100vw - 32px))",
+        height: "min(540px, calc((100vw - 32px) * 1.42))",
+        marginBottom: 32,
+      }}>
         <AnimatePresence>
           {cards.length === 0 ? (
             <motion.div
@@ -347,7 +348,8 @@ export default function TinderCards({ onSave }: TinderCardsProps) {
         </AnimatePresence>
       </div>
 
-      <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+      {/* Action buttons */}
+      <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
         <ActionButton onClick={handleUndo} disabled={!history.length} color="#aaa" label="↩ Undo" />
         <ActionButton
           onClick={() => cards[0] && handleSwipe(cards[0].id, "left")}
@@ -360,7 +362,11 @@ export default function TinderCards({ onSave }: TinderCardsProps) {
       </div>
 
       {savedComics.length > 0 && (
-        <div style={{ marginTop: 24, display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", maxWidth: 340 }}>
+        <div style={{
+          marginTop: 20, display: "flex", gap: 8,
+          flexWrap: "wrap", justifyContent: "center",
+          maxWidth: "min(340px, calc(100vw - 32px))",
+        }}>
           {savedComics.map((card) => (
             <span key={card.id} style={{
               padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700,
@@ -393,13 +399,13 @@ function ActionButton({
       onClick={onClick}
       disabled={disabled}
       style={{
-        padding: size === "lg" ? "14px 28px" : "10px 20px",
+        padding: size === "lg" ? "12px 24px" : "9px 18px",
         borderRadius: 999,
         border: `2px solid ${disabled ? "#333" : color}`,
         background: disabled ? "transparent" : `${color}18`,
         color: disabled ? "#444" : color,
         fontWeight: 800,
-        fontSize: size === "lg" ? 16 : 13,
+        fontSize: size === "lg" ? 15 : 12,
         cursor: disabled ? "not-allowed" : "pointer",
         boxShadow: !disabled ? `0 4px 20px -4px ${color}44` : "none",
       }}

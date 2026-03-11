@@ -16,12 +16,8 @@ export default function Home() {
   const [savedComics, setSavedComics] = useState<Card[]>([]);
   const [selectedComic, setSelectedComic] = useState<Card | null>(null);
 
-  // Load saved comics from Supabase when user logs in
   useEffect(() => {
-    if (!user) {
-      setSavedComics([]);
-      return;
-    }
+    if (!user) { setSavedComics([]); return; }
     fetchSavedComics(user.id).then((ids) => {
       if (ids.length === 0) return;
       supabase
@@ -42,74 +38,84 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0f0f0f] flex items-center justify-center px-8 relative">
+    <div className="min-h-screen bg-[#0f0f0f] relative">
 
-      {/* Auth button — top right */}
-      <div className="fixed top-6 right-8 z-50">
-        <AuthButton />
+      {/* Top bar */}
+      <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 md:px-8 py-4"
+        style={{ background: "rgba(15,15,15,0.9)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}
+      >
+        <div className="bg-red-600 text-white px-4 py-1.5 text-lg font-bold">
+          COMICS.India
+        </div>
+
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => router.push("/")}
+            className="text-white/50 text-sm font-semibold hover:text-white transition-colors hidden md:block"
+          >
+            Home
+          </button>
+          <button
+            onClick={() => router.push("/feed")}
+            className="text-white/50 text-sm font-semibold hover:text-white transition-colors hidden md:block"
+          >
+            Browse
+          </button>
+          <AuthButton />
+        </div>
       </div>
 
-      <div className="fixed bottom-8 right-20 z-50">
+      {/* FAB */}
+      <div className="fixed bottom-6 right-6 z-50">
         <AddButton />
       </div>
 
-      <main className="w-full max-w-6xl flex flex-col md:flex-row items-start gap-16">
+      {/* Main content — pushed below top bar */}
+      <main className="pt-20 pb-12 px-4 md:px-8 w-full max-w-6xl mx-auto">
 
-        {/* LEFT */}
-        <div className="flex-1 flex flex-col gap-6">
-          <div className="inline-block bg-red-600 text-white px-10 py-3 text-2xl font-bold self-start">
-            COMICS.India
-          </div>
-          <p className="text-white font-bold text-4xl leading-snug">
-            Where stories <br /> are born.
-          </p>
-          <p className="text-white/40 text-sm max-w-xs">
-            Swipe through India&apos;s best indie comics. Like what you love, skip what you don&apos;t.
-          </p>
+        {/* Mobile: stack vertically, Desktop: side by side */}
+        <div className="flex flex-col md:flex-row items-start gap-8 md:gap-16">
 
-          <div className="flex gap-4">
-            <button
-              onClick={() => router.push("/")}
-              className="text-white/60 text-sm font-semibold hover:text-white transition-colors"
-            >
-              Home
-            </button>
-            <button
-              onClick={() => router.push("/feed")}
-              className="text-white/60 text-sm font-semibold hover:text-white transition-colors"
-            >
-              Browse
-            </button>
-          </div>
+          {/* LEFT — hidden on mobile unless logged in with saves */}
+          <div className="w-full md:flex-1 flex flex-col gap-5">
 
-          {/* Show saved comics only when logged in */}
-          {user ? (
-            <SavedComics
-              comics={savedComics}
-              selectedId={selectedComic?.id ?? null}
-              onSelect={setSelectedComic}
-            />
-          ) : (
-            <div style={{
-              padding: "20px",
-              borderRadius: 16,
-              border: "1px dashed rgba(255,255,255,0.08)",
-              color: "rgba(255,255,255,0.2)",
-              fontFamily: "sans-serif",
-              fontSize: 13,
-              textAlign: "center",
-            }}>
-              <div style={{ fontSize: 28, marginBottom: 8 }}>🔒</div>
-              Sign in to save comics across devices
+            {/* Hero text — visible on desktop only */}
+            <div className="hidden md:flex flex-col gap-4">
+              <p className="text-white font-bold text-4xl leading-snug">
+                Where stories <br /> are born.
+              </p>
+              <p className="text-white/40 text-sm max-w-xs">
+                Swipe through India&apos;s best indie comics. Like what you love, skip what you don&apos;t.
+              </p>
             </div>
-          )}
-        </div>
 
-        {/* RIGHT */}
-        <div className="flex-1 flex justify-center">
-          <TinderCards onSave={handleSave} />
-        </div>
+            {/* Saved comics */}
+            {user ? (
+              <SavedComics
+                comics={savedComics}
+                selectedId={selectedComic?.id ?? null}
+                onSelect={setSelectedComic}
+              />
+            ) : (
+              <div className="hidden md:flex flex-col items-center justify-center gap-2 rounded-2xl p-6"
+                style={{
+                  border: "1px dashed rgba(255,255,255,0.08)",
+                  color: "rgba(255,255,255,0.2)",
+                  fontSize: 13, textAlign: "center",
+                }}
+              >
+                <div style={{ fontSize: 28 }}>🔒</div>
+                Sign in to save comics across devices
+              </div>
+            )}
+          </div>
 
+          {/* RIGHT — swipe deck, always centered */}
+          <div className="w-full md:flex-1 flex flex-col items-center">
+            <TinderCards onSave={handleSave} />
+          </div>
+
+        </div>
       </main>
     </div>
   );
