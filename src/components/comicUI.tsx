@@ -11,6 +11,7 @@ interface Card {
   issue: number;
   created_at: string;
   cover_url: string | null;
+  cover_image_url: string | null;
 }
 
 export type { Card };
@@ -39,8 +40,9 @@ function SwipeCard({
   const colors = ["#1a1a2e", "#2d1b00", "#0d2137", "#1a0a2e", "#002200", "#1a0000", "#001a1a"];
   const color = colors[card.id % colors.length];
 
-  // ── cover_url is already a full https:// URL — use it directly ──
-  const imageUrl = card.cover_url ?? null;
+  // Prefer cover_image_url (thumbnail), fall back to cover_url (works for PNGs)
+  const isPDF = (url: string | null) => url?.toLowerCase().includes(".pdf") ?? false;
+  const imageUrl = card.cover_image_url ?? (isPDF(card.cover_url) ? null : card.cover_url);
 
   return (
     <motion.div
@@ -70,7 +72,7 @@ function SwipeCard({
       onDragEnd={handleDragEnd}
       whileTap={isTop ? { cursor: "grabbing" } : {}}
     >
-      {/* Cover image */}
+      {/* Cover image or PDF placeholder or initial letter */}
       {imageUrl ? (
         <div style={{
           position: "absolute", inset: 0,
@@ -81,6 +83,26 @@ function SwipeCard({
           <div style={{
             position: "absolute", inset: 0,
             background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.3) 50%, transparent 100%)",
+          }} />
+        </div>
+      ) : isPDF(card.cover_url) ? (
+        // PDF with no thumbnail — show a stylised placeholder
+        <div style={{
+          position: "absolute", inset: 0,
+          background: `linear-gradient(145deg, ${color}, #0a0a0a)`,
+          display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center", gap: 12,
+        }}>
+          <div style={{ fontSize: 64, opacity: 0.6 }}>📄</div>
+          <div style={{
+            color: "rgba(255,255,255,0.2)", fontSize: 12,
+            fontWeight: 700, letterSpacing: 2, textTransform: "uppercase",
+          }}>
+            PDF Comic
+          </div>
+          <div style={{
+            position: "absolute", inset: 0,
+            background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, transparent 60%)",
           }} />
         </div>
       ) : (
@@ -137,14 +159,27 @@ function SwipeCard({
         <div style={{ color: "rgba(255,255,255,0.55)", fontFamily: "sans-serif", fontSize: 16, marginTop: 4 }}>
           by {card.author}
         </div>
-        <div style={{
-          display: "inline-block", marginTop: 10,
-          padding: "3px 12px", borderRadius: 999,
-          background: "rgba(255,107,53,0.15)",
-          border: "1px solid rgba(255,107,53,0.4)",
-          color: "#ff6b35", fontSize: 14, fontWeight: 700,
-        }}>
-          Issue {card.issue}
+        <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{
+            display: "inline-block",
+            padding: "3px 12px", borderRadius: 999,
+            background: "rgba(255,107,53,0.15)",
+            border: "1px solid rgba(255,107,53,0.4)",
+            color: "#ff6b35", fontSize: 14, fontWeight: 700,
+          }}>
+            Issue {card.issue}
+          </div>
+          {isPDF(card.cover_url) && (
+            <div style={{
+              display: "inline-block",
+              padding: "3px 12px", borderRadius: 999,
+              background: "rgba(255,255,255,0.07)",
+              border: "1px solid rgba(255,255,255,0.15)",
+              color: "rgba(255,255,255,0.5)", fontSize: 12, fontWeight: 700,
+            }}>
+              PDF
+            </div>
+          )}
         </div>
       </div>
     </motion.div>
@@ -164,24 +199,32 @@ export default function TinderCards({ onSave }: TinderCardsProps) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchComics(): Promise<void> {
-      const { data, error } = await supabase
-        .from("ComicsINDIA")
-        .select("*")
-        .returns<Card[]>();
+  async function fetchComics(): Promise<void> {
+    const { data, error } = await supabase
+      .from("ComicsINDIA")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .returns<Card[]>();
 
-      if (error) {
-        console.error("Supabase error:", error.message);
-        setError(error.message);
-      }
-      if (data) {
-        setAllCards(data);
-        setCards(data);
-      }
-      setLoading(false);
+    if (error) {
+      console.error("Supabase error:", error.message);
+      setError(error.message);
     }
-    fetchComics();
-  }, []);
+    if (data) {
+      // Deduplicate by id just in case
+      const seen = new Set<number>();
+      const unique = data.filter((c) => {
+        if (seen.has(c.id)) return false;
+        seen.add(c.id);
+        return true;
+      });
+      setAllCards(unique);
+      setCards(unique);
+    }
+    setLoading(false);
+  }
+  fetchComics();
+}, []);
 
   const handleSwipe = (id: number, dir: "left" | "right") => {
     const card = cards.find((c) => c.id === id);
@@ -292,7 +335,7 @@ export default function TinderCards({ onSave }: TinderCardsProps) {
               const isTop = reversedIdx === cards.length - 1;
               return (
                 <SwipeCard
-                  key={card.id}
+                  key={`card-${card.id}-${reversedIdx}`}
                   card={card}
                   onSwipe={handleSwipe}
                   isTop={isTop}

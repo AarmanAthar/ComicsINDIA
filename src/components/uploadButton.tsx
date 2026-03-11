@@ -83,9 +83,6 @@ const inputStyle: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
-// ─────────────────────────────────────────────
-// Shared Modal Shell
-// ─────────────────────────────────────────────
 function ModalShell({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
   return (
     <motion.div
@@ -174,6 +171,28 @@ function UploadModal({ onClose }: { onClose: () => void }) {
 
   const author = user?.user_metadata?.full_name ?? "Anonymous";
 
+  if (!user) {
+    return (
+      <ModalShell onClose={onClose}>
+        <div style={{ padding: 48, textAlign: "center", fontFamily: "sans-serif" }}>
+          <div style={{ fontSize: 40 }}>🔒</div>
+          <div style={{ color: "white", fontWeight: 900, fontSize: 20, marginTop: 16 }}>
+            Sign in to upload
+          </div>
+          <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, marginTop: 8 }}>
+            You need a Google account to publish comics.
+          </div>
+          <button onClick={onClose} style={{
+            marginTop: 24, padding: "10px 28px", borderRadius: 999,
+            background: "rgba(255,255,255,0.08)",
+            border: "1px solid rgba(255,255,255,0.15)",
+            color: "white", fontWeight: 800, fontSize: 14, cursor: "pointer",
+          }}>Close</button>
+        </div>
+      </ModalShell>
+    );
+  }
+
   const handleThumb = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -183,12 +202,10 @@ function UploadModal({ onClose }: { onClose: () => void }) {
 
   const handleSubmit = async () => {
     if (!title || !pdfFile) { setError("Title and PDF are required."); return; }
-    if (!user) { setError("You must be signed in to upload."); return; }
     setUploading(true);
     setError(null);
 
     try {
-      // 1. Upload PDF
       const pdfPath = `${user.id}/${Date.now()}_${pdfFile.name}`;
       const { error: pdfErr } = await supabase.storage
         .from("Comics")
@@ -198,7 +215,6 @@ function UploadModal({ onClose }: { onClose: () => void }) {
       const { data: pdfUrlData } = supabase.storage.from("Comics").getPublicUrl(pdfPath);
       const pdfUrl = pdfUrlData.publicUrl;
 
-      // 2. Upload thumbnail (optional)
       let thumbUrl: string | null = null;
       if (thumbFile) {
         const thumbPath = `${user.id}/thumb_${Date.now()}_${thumbFile.name}`;
@@ -210,7 +226,6 @@ function UploadModal({ onClose }: { onClose: () => void }) {
         thumbUrl = thumbUrlData.publicUrl;
       }
 
-      // 3. Insert into ComicsINDIA
       const { error: insertErr } = await supabase.from("ComicsINDIA").insert({
         comic_name: title,
         author,
@@ -243,7 +258,7 @@ function UploadModal({ onClose }: { onClose: () => void }) {
           <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20, fontFamily: "sans-serif" }}>
 
             <div style={{ display: "flex", gap: 16 }}>
-              {/* Thumbnail picker */}
+              {/* Thumbnail */}
               <div
                 onClick={() => thumbRef.current?.click()}
                 style={{
@@ -273,24 +288,13 @@ function UploadModal({ onClose }: { onClose: () => void }) {
 
               {/* Fields */}
               <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 12 }}>
-                <input
-                  placeholder="Comic title *"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  style={inputStyle}
-                />
-                <input
-                  value={`by ${author}`}
-                  disabled
-                  style={{ ...inputStyle, opacity: 0.4, cursor: "not-allowed" }}
-                />
-                <input
-                  placeholder="Issue / Edition number"
-                  value={issue}
+                <input placeholder="Comic title *" value={title}
+                  onChange={(e) => setTitle(e.target.value)} style={inputStyle} />
+                <input value={`by ${author}`} disabled
+                  style={{ ...inputStyle, opacity: 0.4, cursor: "not-allowed" }} />
+                <input placeholder="Issue / Edition number" value={issue}
                   onChange={(e) => setIssue(e.target.value)}
-                  type="number"
-                  style={inputStyle}
-                />
+                  type="number" style={inputStyle} />
               </div>
             </div>
 
@@ -357,9 +361,27 @@ function PostModal({ onClose }: { onClose: () => void }) {
   const avatar = user?.user_metadata?.avatar_url ?? null;
   const charLimit = 280;
 
+  if (!user) {
+    return (
+      <ModalShell onClose={onClose}>
+        <div style={{ padding: 48, textAlign: "center", fontFamily: "sans-serif" }}>
+          <div style={{ fontSize: 40 }}>🔒</div>
+          <div style={{ color: "white", fontWeight: 900, fontSize: 20, marginTop: 16 }}>
+            Sign in to post
+          </div>
+          <button onClick={onClose} style={{
+            marginTop: 24, padding: "10px 28px", borderRadius: 999,
+            background: "rgba(255,255,255,0.08)",
+            border: "1px solid rgba(255,255,255,0.15)",
+            color: "white", fontWeight: 800, fontSize: 14, cursor: "pointer",
+          }}>Close</button>
+        </div>
+      </ModalShell>
+    );
+  }
+
   const handlePost = async () => {
     if (!content.trim()) { setError("Write something first."); return; }
-    if (!user) { setError("You must be signed in to post."); return; }
     setPosting(true);
     setError(null);
 
@@ -440,20 +462,16 @@ function PostModal({ onClose }: { onClose: () => void }) {
               <div style={{ color: "#ff4444", fontSize: 13, textAlign: "center" }}>⚠️ {error}</div>
             )}
 
-            <button
-              onClick={handlePost}
-              disabled={posting || !content.trim()}
-              style={{
-                padding: "13px", borderRadius: 14,
-                background: posting || !content.trim() ? "#333" : "linear-gradient(135deg, #ff6b35, #f7931e)",
-                border: "none",
-                color: posting || !content.trim() ? "#666" : "white",
-                fontWeight: 800, fontSize: 15,
-                cursor: posting || !content.trim() ? "not-allowed" : "pointer",
-                boxShadow: posting || !content.trim() ? "none" : "0 4px 20px rgba(255,107,53,0.3)",
-                transition: "all 0.2s",
-              }}
-            >
+            <button onClick={handlePost} disabled={posting || !content.trim()} style={{
+              padding: "13px", borderRadius: 14,
+              background: posting || !content.trim() ? "#333" : "linear-gradient(135deg, #ff6b35, #f7931e)",
+              border: "none",
+              color: posting || !content.trim() ? "#666" : "white",
+              fontWeight: 800, fontSize: 15,
+              cursor: posting || !content.trim() ? "not-allowed" : "pointer",
+              boxShadow: posting || !content.trim() ? "none" : "0 4px 20px rgba(255,107,53,0.3)",
+              transition: "all 0.2s",
+            }}>
               {posting ? "Posting..." : "Post Announcement ✎"}
             </button>
           </div>
